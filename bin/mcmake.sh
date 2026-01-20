@@ -91,8 +91,6 @@ level-seed=$SEED
 online-mode=true
 EOF
 echo "eula=true" > "$INSTANCE_PATH/eula.txt"
-cp "$BIN_DIR/server.sh" "$INSTANCE_PATH/server.sh"
-chmod +x "$INSTANCE_PATH/server.sh"
 
 # 8. Service Activation (Using Sudo)
 echo "Activating Services..."
