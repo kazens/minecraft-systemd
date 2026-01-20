@@ -1,0 +1,52 @@
+[Unit]
+Description=Minecraft Server: %i
+After=network.target
+# Automatically try to start the announcer when the server starts
+Wants=mcannounce@%i.service
+
+[Service]
+WorkingDirectory=/opt/minecraft/instances/%i
+EnvironmentFile=-/opt/minecraft/instances/%i/server.env
+
+User=minecraft
+Group=minecraft
+
+Restart=always
+RestartSec=3s
+
+# We use /bin/bash -c so we can expand the $MEMORY variable safely.
+# If $MEMORY isn't set in the env file, it defaults to 2G.
+ExecStart=/usr/bin/screen -DmS mc-%i /bin/bash -c \
+    'exec /usr/bin/java -Xmx${MEMORY:-2G} -Xms${MEMORY:-2G} -Djava.net.preferIPv4Stack=true -jar minecraft_server.jar nogui'
+# Old value when I used a script to start the server.
+#ExecStart=/usr/bin/screen -DmS mc-%i ./server.sh
+
+# Graceful Shutdown
+# First Broadcast warnings
+ExecStop=/usr/bin/screen -p 0 -S mc-%i -X eval 'stuff "say SERVER SHUTTING DOWN IN 15 SECONDS..."\015'
+ExecStop=/bin/sleep 5
+ExecStop=/usr/bin/screen -p 0 -S mc-%i -X eval 'stuff "say SERVER SHUTTING DOWN IN 10 SECONDS..."\015'
+ExecStop=/bin/sleep 5
+ExecStop=/usr/bin/screen -p 0 -S mc-%i -X eval 'stuff "say SERVER SHUTTING DOWN IN 5 SECONDS..."\015'
+ExecStop=/bin/sleep 5
+
+# Save state and initiate shutdown
+ExecStop=/usr/bin/screen -p 0 -S mc-%i -X eval 'stuff "save-all"\015'
+ExecStop=/usr/bin/screen -p 0 -S mc-%i -X eval 'stuff "stop"\015'
+
+# Wait for sucessful exit
+# This prevents systemd from sending a SIGTERM/SIGKILL while the world is still saving.
+# The loop exits as soon as the process dies.
+ExecStop=/bin/bash -c 'while ps -p $MAINPID > /dev/null; do sleep 1; done'
+
+# --- SAFETY & CLEANUP ---
+# Total time systemd allows for all ExecStop commands + wait loop.
+TimeoutStopSec=90s
+
+# 0: Clean stop.
+# 1: Screen/Shell exit noise?
+# 143: SIGTERM (In case TimeoutStopSec hits and systemd forces a stop).
+#SuccessExitStatus=0 1 143
+
+[Install]
+WantedBy=multi-user.target	

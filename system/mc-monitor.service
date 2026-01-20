@@ -1,0 +1,10 @@
+[Unit]
+Description=Minecraft Instance Deadlock Monitor
+After=network.target
+
+[Service]
+Type=oneshot
+User=minecraft
+# Ensure we use the full path to the script
+ExecStart=/opt/minecraft/bin/mcrecover.sh
+# We don't need a [Install] section here because the Timer triggers it

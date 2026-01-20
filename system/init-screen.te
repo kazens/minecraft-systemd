@@ -1,0 +1,22 @@
+module init-screen 1.0;
+
+require {
+        type screen_exec_t;
+        type ptmx_t;
+        type devpts_t;
+        type init_t;
+        type utempter_exec_t;
+        class file { execute execute_no_trans map open read };
+        class chr_file { ioctl open read setattr write };
+}
+
+#============= init_t ==============
+allow init_t devpts_t:chr_file { open setattr };
+
+#!!!! This avc is allowed in the current policy
+#!!!! This av rule may have been overridden by an extended permission av rule
+allow init_t ptmx_t:chr_file { ioctl open read write };
+
+#!!!! This avc is allowed in the current policy
+allow init_t screen_exec_t:file { execute execute_no_trans map open read };
+allow init_t utempter_exec_t:file execute;

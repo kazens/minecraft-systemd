@@ -1,73 +1,68 @@
-================================================================================
-                    MINECRAFT SERVER INFRASTRUCTURE
-================================================================================
+# Minecraft Server Infrastructure
 
-This directory contains a multi-instance Minecraft server environment managed 
-by systemd and monitored by custom health/recovery scripts.
+This repository contains a multi-instance Minecraft server environment managed by **systemd** and monitored by custom health and recovery scripts.
 
---------------------------------------------------------------------------------
-1. SERVICE MANAGEMENT
---------------------------------------------------------------------------------
-Servers are managed as systemd template units. Replace <name> with the folder 
-name of the instance found in /opt/minecraft/instances/.
+---
 
-* Start a server:      sudo systemctl start mcserver@<name>
-* Stop a server:       sudo systemctl stop mcserver@<name>
-* Restart a server:    sudo systemctl restart mcserver@<name>
-* Check status:        systemctl status mcserver@<name>
-* View system logs:    journalctl -u mcserver@<name> -f
+## 1. Service Management
+The servers are managed as systemd template units. Replace `<name>` with the folder name of the instance found in `/opt/minecraft/instances/`.
 
-Note: The stop command triggers a 15s in-game warning, an automated save-all, 
-and a "Smart Wait" loop that allows the Java process to exit cleanly with 
-status 0 before systemd intervenes.
+* **Start a server:** `sudo systemctl start mcserver@<name>`
+* **Stop a server:** `sudo systemctl stop mcserver@<name>`
+* **Restart a server:** `sudo systemctl restart mcserver@<name>`
+* **Check status:** `systemctl status mcserver@<name>`
+* **View system logs:** `journalctl -u mcserver@<name> -f`
 
---------------------------------------------------------------------------------
-2. CONSOLE INTERACTION (SCREEN)
---------------------------------------------------------------------------------
-The servers run inside detached 'screen' sessions.
+> **Note:** The stop command triggers a 15s in-game warning, an automated `save-all`, and a "Smart Wait" loop that allows the Java process to exit cleanly (Status 0) before systemd intervenes.
 
-* Connect to a console:    screen -r mc-<name>
-* Disconnect (Detach):     Press CTRL+A, then D
+---
 
-WARNING: Always use the detach sequence (CTRL+A, D) to leave the console. 
-Closing the terminal window or using CTRL+C may interrupt the server process 
-depending on current shell focus.
+## 2. Console Interaction (Screen)
+The servers run inside detached `screen` sessions.
 
---------------------------------------------------------------------------------
-3. MONITORING & PROVISIONING TOOLS
---------------------------------------------------------------------------------
-Custom scripts are located in /opt/minecraft/bin/ (added to $PATH).
+* **Connect to a console:** `screen -r mc-<name>`
+* **Disconnect (Detach):** Press `CTRL+A`, then `D`
 
-* mchealth.sh   - DASHBOARD: Displays real-time RAM usage, Port status, 
-                  Player counts, and Log Heartbeat (Age).
-* mcrecover.sh  - THE DOCTOR: An automated script (run via systemd timer) 
-                  that detects "Zombies" (Port is listening, but Log is dead).
-* mcmake.sh     - CREATOR: Helper script to provision new server instances. 
-                  It downloads the required server.jar and stores a master 
-                  copy in /opt/minecraft/jars/ for instance deployment.
+⚠️ **WARNING:** Always use the detach sequence (`CTRL+A`, `D`) to leave the console. Closing the terminal window or using `CTRL+C` may interrupt the server process.
 
---------------------------------------------------------------------------------
-4. INFRASTRUCTURE LOGIC
---------------------------------------------------------------------------------
-* RECOVERY STATE: Failure counts are stored in /dev/shm/minecraft_monitor. 
-  The script enforces strict ownership and type checks to prevent tampering.
-* ZOMBIE DETECTION: A server is flagged as a "Zombie" if it is active but 
-  its latest.log hasn't been modified in > 90 seconds. 
-* AUTO-RECOVERY: Managed by 'mc-monitor.timer'. To disable all automated 
-  restarts for maintenance, run: 
-  sudo systemctl stop mc-monitor.timer
+---
 
---------------------------------------------------------------------------------
-5. DIRECTORY STRUCTURE
---------------------------------------------------------------------------------
+## 3. Monitoring & Provisioning Tools
+Custom scripts are located in `/opt/minecraft/bin/`.
+
+| Script | Purpose |
+| :--- | :--- |
+| `mchealth.sh` | **DASHBOARD:** Displays real-time RAM, Port status, Player counts, and Lag. |
+| `mcrecover.sh` | **THE DOCTOR:** Automated script that detects and restarts "Zombie" instances. |
+| `mcannounce.py` | **LAN BROADCASTER:** Announces server to the local network discovery list. |
+| `mcmake.sh` | **CREATOR:** Provisions new server instances and manages master JAR files. |
+
+---
+
+## 4. Systemd & Security (system/ directory)
+This project includes pre-configured systemd units and SELinux policy modules to ensure the services run with the least privilege necessary.
+
+### Services & Timers
+* `mcserver@.service`: The main server instance template.
+* `mcannounce@.service`: Handles LAN discovery broadcasts per instance.
+* `mc-monitor.service/timer`: Drives the `mcrecover.sh` health checks every 2 minutes.
+
+### SELinux Policies
+If you are running on a system with SELinux (like Fedora or RHEL), use these files to allow `screen` to run properly under systemd:
+* `init-screen.te`: Type Enforcement file.
+* `init-screen.mod` / `init-screen.pp`: Compiled policy modules.
+
+---
+
+## 5. Directory Structure
+```text
 /opt/minecraft/
-├── bin/                # Management & Health scripts
-├── jars/               # Master copies of server.jar files (managed by mcmake)
+├── bin/                # Management, Health, and Announcement scripts
+├── jars/               # Master server.jar files
+├── system/             # Systemd units and SELinux policy files
 ├── instances/          # Root for all server data
 │   └── <name>/         # Individual instance folder
 │       ├── server.properties
 │       ├── server.env  # Optional: Define MEMORY=4096M
-│       └── logs/       # Heartbeat/Age monitored here via latest.log
-└── README.txt          # This file
---------------------------------------------------------------------------------
-# minecraft-systemd
+│       └── logs/       # latest.log is monitored here
+└── README.md

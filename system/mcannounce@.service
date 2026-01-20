@@ -1,0 +1,20 @@
+[Unit]
+Description=Minecraft Server Announcer: %i
+# Wait for the network and the specific server instance to be ready
+After=network.target mcserver@%i.service
+# If the server instance stops, stop this announcer immediately
+BindsTo=mcserver@%i.service
+
+[Service]
+WorkingDirectory=/opt/minecraft/instances/%i
+
+User=minecraft
+Group=minecraft
+
+Restart=always
+RestartSec=10s
+
+ExecStart=/opt/minecraft/bin/mcannounce.py
+
+[Install]
+WantedBy=multi-user.target

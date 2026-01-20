@@ -1,0 +1,11 @@
+[Unit]
+Description=Run Minecraft Monitor every 2 minutes
+
+[Timer]
+# Wait 5 minutes after boot before starting (allows servers to fully load)
+OnBootSec=5min
+# Run every 2 minutes thereafter
+OnUnitActiveSec=2min
+
+[Install]
+WantedBy=timers.target
