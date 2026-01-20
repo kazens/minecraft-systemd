@@ -1,0 +1,28 @@
+# Minecraft Infrastructure Exclusions
+instances/*
+!instances/.gitkeep
+instances.backup/
+backups/
+*.jar
+*.fail
+
+# Systemd / Runtime
+system/*.mod
+system/*.pp
+
+# Development & Temp Files
+*.bak
+*.swp
+bin/test*.sh
+
+# Shell & User Artifacts (Keep these for your local privacy)
+.bash_history
+.bash_logout
+.bash_profile
+.bashrc
+.cache/
+.config/
+.lesshst
+.local/
+.viminfo
+.wget-hsts
