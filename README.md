@@ -23,7 +23,7 @@ The servers run inside detached `screen` sessions for direct console access.
 * **Connect to a console:** `screen -r mc-<name>`
 * **Disconnect (Detach):** Press `CTRL+A`, then `D`
 
-⚠️ **WARNING:** Always use the detach sequence (`CTRL+A`, `D`) to leave the console. Closing the terminal window or using `CTRL+C` while attached may interrupt the server process.
+> ⚠️ **WARNING:** Always use the detach sequence (`CTRL+A`, `D`) to leave the console. Closing the terminal window or using `CTRL+C` while attached may interrupt the server process.
 ---
 
 ## 3. Monitoring & Provisioning Tools
@@ -31,10 +31,10 @@ Custom scripts are located in `/opt/minecraft/bin/`.
 
 | Script | Purpose |
 | :--- | :--- |
-| `mchealth.sh` | **DASHBOARD:** Displays real-time RAM, Port status, Player counts, and Lag. |
-| `mcrecover.sh` | **THE DOCTOR:** Automated script that detects and restarts "Zombie" instances. |
-| `mcannounce.py` | **LAN BROADCASTER:** Announces server to the local network discovery list. |
-| `mcmake.sh` | **CREATOR:** Provisions new server instances and downloads `server.jar` to `/opt/minecraft/jars`. |
+| `mchealth.sh` | Displays real-time RAM, Port status, Player counts, and Lag. |
+| `mcrecover.sh` | Automated script that detects and restarts "Zombie" instances. |
+| `mcannounce.py` | Announces server to the local network discovery list. |
+| `mcmake.sh` | Provisions new server instances and downloads `server.jar` to `/opt/minecraft/jars`. |
 
 ---
 
@@ -72,6 +72,7 @@ The framework expects the following layout under `/opt/minecraft/`. Empty direct
 │       ├── server.env  # Optional: Define MEMORY=4096M
 │       └── logs/       # latest.log is monitored for health checks
 └── README.md
+```
 
 ---
 
