@@ -56,6 +56,25 @@ semodule_package -o init-screen.pp -m init-screen.mod
 sudo semodule -i init-screen.pp
 ```
 
+### Sudoers Configuration
+To allow the management scripts to function without password prompts, add a configuration file (e.g., `/etc/sudoers.d/minecraft`) with the following rules:
+
+```text
+# Allow the minecraft user to manage specific template units ONLY
+minecraft ALL=(ALL) NOPASSWD: /usr/bin/systemctl enable mcserver@*
+minecraft ALL=(ALL) NOPASSWD: /usr/bin/systemctl enable mcannounce@*
+minecraft ALL=(ALL) NOPASSWD: /usr/bin/systemctl enable --now mcserver@*
+minecraft ALL=(ALL) NOPASSWD: /usr/bin/systemctl enable --now mcannounce@*
+minecraft ALL=(ALL) NOPASSWD: /usr/bin/systemctl start mcserver@*
+minecraft ALL=(ALL) NOPASSWD: /usr/bin/systemctl start mcannounce@*
+minecraft ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart mcserver@*
+minecraft ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart mcannounce@*
+minecraft ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop mcserver@*
+minecraft ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop mcannounce@*
+minecraft ALL=(ALL) NOPASSWD: /usr/bin/systemctl status mcserver@*
+minecraft ALL=(ALL) NOPASSWD: /usr/bin/systemctl status mcannounce@*
+```
+
 ---
 
 ## 5. Directory Structure
