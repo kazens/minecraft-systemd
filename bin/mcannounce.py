@@ -15,6 +15,57 @@ import os
 MULTICAST_IP = "224.0.2.60"
 MULTICAST_PORT = 4445
 BROADCAST_INTERVAL = 3
+# Safe UDP datagram size for typical LAN MTU (MOTD is truncated to fit).
+MAX_UDP_PAYLOAD = 1400
+
+# Linux: first TCP/UDP port a non-root process may bind without capabilities.
+_UNPRIV_PORT_START_PROC = "/proc/sys/net/ipv4/ip_unprivileged_port_start"
+_DEFAULT_UNPRIV_PORT_START = 1024
+
+
+def min_unprivileged_listen_port():
+    """
+    Lowest port the minecraft user can typically bind (matches sysctl on Linux).
+    Falls back to 1024 if unknown (e.g. non-Linux).
+    """
+    try:
+        with open(_UNPRIV_PORT_START_PROC, encoding="utf-8") as f:
+            n = int(f.read().strip())
+    except (OSError, ValueError):
+        return _DEFAULT_UNPRIV_PORT_START
+    # 0 = kernel allows binding low ports without privilege on some setups
+    return 1 if n <= 0 else n
+
+
+def truncate_motd_for_udp(motd, server_port, max_payload):
+    """
+    Return (motd_for_broadcast, encoded_message, truncated).
+    Truncates motd UTF-8 so the full LAN ping frame fits in max_payload octets.
+    """
+    prefix = "[MOTD]"
+    suffix = f"[/MOTD][AD]{server_port}[/AD]"
+    overhead = len(prefix.encode("utf-8")) + len(suffix.encode("utf-8"))
+    max_motd = max_payload - overhead
+    if max_motd < 1:
+        max_motd = 0
+
+    raw = motd.encode("utf-8")
+    truncated = False
+    if len(raw) > max_motd:
+        truncated = True
+        raw = raw[:max_motd]
+        while raw:
+            try:
+                motd = raw.decode("utf-8")
+                break
+            except UnicodeDecodeError:
+                raw = raw[:-1]
+        else:
+            motd = ""
+
+    msg = f"{prefix}{motd}{suffix}".encode("utf-8")
+    return motd, msg, truncated
+
 
 def load_minecraft_properties(filename):
     """
@@ -52,8 +103,19 @@ def run_broadcaster():
         print(f"[{instance_name}] Critical Error: 'server-port' missing from properties.")
         sys.exit(1)
 
-    server_port = properties['server-port']
-    
+    raw_port = properties['server-port'].strip()
+    if not raw_port.isdigit():
+        print(f"[{instance_name}] Critical Error: 'server-port' must be a decimal integer, got {raw_port!r}.")
+        sys.exit(1)
+    server_port = int(raw_port)
+    min_port = min_unprivileged_listen_port()
+    if not (min_port <= server_port <= 65535):
+        print(
+            f"[{instance_name}] Critical Error: 'server-port' must be {min_port}-65535 "
+            f"(unprivileged bind range on this host), got {server_port}."
+        )
+        sys.exit(1)
+
     # MOTD Priority: 'motd' property first, fallback to 'level-name'
     motd = properties.get('motd') or properties.get('level-name')
 
@@ -61,10 +123,15 @@ def run_broadcaster():
         print(f"[{instance_name}] Critical Error: Neither 'motd' nor 'level-name' found in properties.")
         sys.exit(1)
 
-    # Format required by the Minecraft client
-    msg = f"[MOTD]{motd}[/MOTD][AD]{server_port}[/AD]".encode('utf-8')
+    motd_out, msg, motd_truncated = truncate_motd_for_udp(motd, server_port, MAX_UDP_PAYLOAD)
+    if motd_truncated:
+        print(
+            f"[{instance_name}] Warning: MOTD truncated for LAN broadcast "
+            f"({len(msg)} / {MAX_UDP_PAYLOAD} byte frame).",
+            file=sys.stderr,
+        )
 
-    print(f"[{instance_name}] Starting broadcast: Port {server_port} | MOTD: {motd}")
+    print(f"[{instance_name}] Starting broadcast: Port {server_port} | MOTD: {motd_out}")
 
     # Use a context manager to ensure the socket is closed on exit/crash
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM, socket.IPPROTO_UDP) as sock:
