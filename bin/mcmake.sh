@@ -18,6 +18,11 @@ usage() {
     exit 1
 }
 
+# Strip C0/C1 control characters and DEL (keeps UTF-8 and printable text)
+strip_controls() {
+    LC_ALL=C printf '%s' "$1" | LC_ALL=C tr -d '\000-\037\177'
+}
+
 # 1. Parse Args
 while [[ "$#" -gt 0 ]]; do
     case $1 in
@@ -32,9 +37,12 @@ while [[ "$#" -gt 0 ]]; do
 done
 
 # 2. Input & Sanitization
-[ -z "$INSTANCE_NAME" ] && read -p "Instance name: " INSTANCE_NAME
-# Remove any characters that aren't alphanumeric, dash, or underscore
-INSTANCE_NAME=$(echo "$INSTANCE_NAME" | sed 's/[^a-zA-Z0-9._-]//g')
+[ -z "$INSTANCE_NAME" ] && read -r -p "Instance name: " INSTANCE_NAME
+INSTANCE_NAME="${INSTANCE_NAME//[^a-zA-Z0-9._-]/}"
+if [ -z "$INSTANCE_NAME" ]; then
+    echo "Error: Instance name is empty or invalid after sanitization."
+    exit 1
+fi
 
 INSTANCE_PATH="$BASE_DIR/$INSTANCE_NAME"
 if [ -d "$INSTANCE_PATH" ]; then
@@ -43,22 +51,30 @@ if [ -d "$INSTANCE_PATH" ]; then
 fi
 
 if [ "$USE_DEFAULTS" = false ]; then
-    [ "$VERSION" == "latest" ] && read -p "Version [latest]: " input_v && VERSION=${input_v:-latest}
-    [ -z "$MOTD" ] && read -p "MOTD: " input_m && MOTD=${input_m:-"Minecraft Server $INSTANCE_NAME"}
-    [ -z "$SEED" ] && read -p "Seed: " input_s && SEED=${input_s:-""}
+    [ "$VERSION" == "latest" ] && read -r -p "Version [latest]: " input_v && VERSION=${input_v:-latest}
+    [ -z "$MOTD" ] && read -r -p "MOTD: " input_m && MOTD=${input_m:-"Minecraft Server $INSTANCE_NAME"}
+    [ -z "$SEED" ] && read -r -p "Seed: " input_s && SEED=${input_s:-""}
 else
     MOTD=${MOTD:-"Minecraft Server $INSTANCE_NAME"}
 fi
 
+MOTD=$(strip_controls "$MOTD")
+SEED=$(strip_controls "$SEED")
+
 # 3. Resolve Version
 echo "Resolving version..."
-if [ "$VERSION" == "latest" ]; then
-    VERSION=$(curl -s $MANIFEST_URL | jq -r '.latest.release')
+MANIFEST_JSON=$(curl -s "$MANIFEST_URL")
+if [ -z "$MANIFEST_JSON" ]; then
+    echo "Error: Failed to download version manifest (empty response)."
+    exit 1
 fi
-# Sanitize version string
-VERSION=$(echo "$VERSION" | sed 's/[^a-zA-Z0-9.]//g')
 
-VERSION_URL=$(curl -s $MANIFEST_URL | jq -r --arg V "$VERSION" '.versions[] | select(.id == $V) | .url')
+if [ "$VERSION" == "latest" ]; then
+    VERSION=$(jq -r '.latest.release' <<< "$MANIFEST_JSON")
+fi
+VERSION="${VERSION//[^a-zA-Z0-9.]/}"
+
+VERSION_URL=$(jq -r --arg V "$VERSION" '.versions[] | select(.id == $V) | .url' <<< "$MANIFEST_JSON")
 if [ -z "$VERSION_URL" ] || [ "$VERSION_URL" == "null" ]; then
     echo "Error: Version $VERSION not found."; exit 1
 fi
@@ -83,13 +99,8 @@ while grep -rq "server-port=$PORT" "$BASE_DIR"; do
     ((PORT++))
 done
 
-# 7. Write Configs
-cat > "$INSTANCE_PATH/server.properties" <<EOF
-server-port=$PORT
-motd=$MOTD
-level-seed=$SEED
-online-mode=true
-EOF
+# 7. Write Configs (printf: values are data, not re-parsed as shell code)
+printf '%s\n' "server-port=$PORT" "motd=$MOTD" "level-seed=$SEED" "online-mode=true" > "$INSTANCE_PATH/server.properties"
 echo "eula=true" > "$INSTANCE_PATH/eula.txt"
 
 # 8. Service Activation (Using Sudo)
