@@ -16,7 +16,11 @@ echo "--------------------------------------------------------------------------
 for dir in "$BASE_DIR"/*/; do
     [ -d "$dir" ] || continue
     INSTANCE=$(basename "$dir" | tr -d '\r\n')
-    
+    if [[ ! "$INSTANCE" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        printf "%-17s | (skipped: bad name)\n" "$INSTANCE"
+        continue
+    fi
+
     # 1. Extraction
     PORT=$(grep -m 1 "^server-port=" "${dir}server.properties" 2>/dev/null | cut -d= -f2 | tr -dc '0-9')
     PORT=${PORT:-"???"}
@@ -56,8 +60,8 @@ for dir in "$BASE_DIR"/*/; do
             else AGE_COLOR="\e[0;31m"; fi
         fi
 
-        # Network Check
-        if [[ "$PORT" =~ ^[0-9]+$ ]] && ss -tuln | grep -q ":$PORT "; then
+        # Network Check (PORT is numeric; ss -H omits table header)
+        if [[ "$PORT" =~ ^[0-9]+$ ]] && ss -tulnH 2>/dev/null | grep -qE ":$PORT[[:space:]]"; then
             if [ $AGE_VAL -lt 90 ]; then
                 NET_STR="$PORT:UP"
                 NET_COLOR="\e[0;32m"
@@ -85,9 +89,11 @@ for dir in "$BASE_DIR"/*/; do
         # Grab the line and extract just the number following "There are"
         PLAYER_INFO=$(tail -n 20 "$LOG_FILE" 2>/dev/null | grep "players online" | tail -n 1)
         if [ -n "$PLAYER_INFO" ]; then
-            # Extract only the digit that appears before "of a max"
-            P_CURRENT=$(echo "$PLAYER_INFO" | grep -oP 'There are \K[0-9]+')
-            PLAYER_COUNT="${P_CURRENT:-0}"
+            if [[ "$PLAYER_INFO" =~ There\ are\ ([0-9]+) ]]; then
+                PLAYER_COUNT="${BASH_REMATCH[1]}"
+            else
+                PLAYER_COUNT="0"
+            fi
         else
             PLAYER_COUNT="0"
         fi
