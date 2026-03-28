@@ -18,6 +18,10 @@ chmod 700 "$STATE_DIR"
 for dir in "$BASE_DIR"/*/; do
     [ -d "$dir" ] || continue
     INSTANCE=$(basename "$dir" | tr -d '\r\n')
+    if [[ ! "$INSTANCE" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        echo "$(date): Skipping invalid instance directory name: $INSTANCE" >&2
+        continue
+    fi
     LOG_FILE="${dir}logs/latest.log"
     COUNT_FILE="$STATE_DIR/$INSTANCE.fail"
     
