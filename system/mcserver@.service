@@ -6,6 +6,7 @@ Wants=mcannounce@%i.service
 
 [Service]
 WorkingDirectory=/opt/minecraft/instances/%i
+Environment=MEMORY=2G
 EnvironmentFile=-/opt/minecraft/instances/%i/server.env
 
 User=minecraft
@@ -14,10 +15,8 @@ Group=minecraft
 Restart=always
 RestartSec=3s
 
-# We use /bin/bash -c so we can expand the $MEMORY variable safely.
-# If $MEMORY isn't set in the env file, it defaults to 2G.
-ExecStart=/usr/bin/screen -DmS mc-%i /bin/bash -c \
-    'exec /usr/bin/java -Xmx${MEMORY:-2G} -Xms${MEMORY:-2G} -Djava.net.preferIPv4Stack=true -jar minecraft_server.jar nogui'
+# Default heap: Environment= above; per-instance server.env may set MEMORY=.
+ExecStart=/usr/bin/screen -DmS mc-%i /usr/bin/java -Xmx$MEMORY -Xms$MEMORY -Djava.net.preferIPv4Stack=true -jar minecraft_server.jar nogui
 # Old value when I used a script to start the server.
 #ExecStart=/usr/bin/screen -DmS mc-%i ./server.sh
 
